@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Summarizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-microphone-alt text-blue-600 mr-3"></i>
+                Meeting Summarizer
+            </h1>
+            <p class="text-xl text-gray-600 mb-2">
+                AI-powered meeting transcription and analysis
+            </p>
+            <p class="text-gray-500">
+                Powered by Gemini Pro • Supports MP3, WAV, M4A, FLAC
+            </p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8 max-w-4xl mx-auto">
+            <div class="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-blue-400 transition-colors duration-300">
+                <i class="fas fa-file-audio text-6xl text-gray-400 mb-4"></i>
+                <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.flac" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" 
+                        class="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-300 text-lg">
+                    <i class="fas fa-upload mr-2"></i>Choose Audio File
+                </button>
+                <div id="fileInfo" class="mt-4 text-gray-600">
+                    <p>No file selected</p>
+                    <p class="text-sm mt-2">Maximum file size: 25MB</p>
+                </div>
+            </div>
+
+            <!-- Error Display -->
+            <div id="error" class="hidden mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <p id="errorText" class="text-red-600"></p>
+                </div>
+            </div>
+
+            <!-- Upload Button -->
+            <button id="uploadBtn" onclick="uploadFile()" 
+                    class="w-full mt-6 bg-gradient-to-r from-green-500 to-blue-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-green-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105">
+                <i class="fas fa-rocket mr-2"></i>
+                <span id="uploadText">Generate Summary</span>
+            </button>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden max-w-4xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 class="text-xl font-semibold text-gray-800">Processing your meeting audio</h3>
+                <p class="text-gray-600 mt-2">This may take a few moments...</p>
+                <div class="mt-4 space-y-2 text-sm text-gray-500">
+                    <div class="flex justify-between">
+                        <span>Transcribing audio...</span>
+                        <i class="fas fa-check text-green-500 hidden" id="step1"></i>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Analyzing content...</span>
+                        <i class="fas fa-check text-green-500 hidden" id="step2"></i>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Generating summary...</span>
+                        <i class="fas fa-check text-green-500 hidden" id="step3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden max-w-7xl mx-auto">
+            <!-- Metrics -->
+            <div class="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-chart-bar text-blue-600 mr-2"></i>Meeting Metrics
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600" id="metricDecisions">0</div>
+                        <div class="text-gray-600">Key Decisions</div>
+                    </div>
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <div class="text-2xl font-bold text-green-600" id="metricActions">0</div>
+                        <div class="text-gray-600">Action Items</div>
+                    </div>
+                    <div class="text-center p-4 bg-purple-50 rounded-lg">
+                        <div class="text-2xl font-bold text-purple-600" id="metricWords">0</div>
+                        <div class="text-gray-600">Words</div>
+                    </div>
+                    <div class="text-center p-4 bg-orange-50 rounded-lg">
+                        <div class="text-2xl font-bold text-orange-600" id="metricTopics">0</div>
+                        <div class="text-gray-600">Topics</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transcript and Summary -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Transcript -->
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            <i class="fas fa-file-alt text-blue-600 mr-2"></i>Transcript
+                        </h2>
+                        <span class="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full" id="wordCount">0 words</span>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6 max-h-96 overflow-y-auto">
+                        <p class="text-gray-700 whitespace-pre-wrap leading-relaxed" id="transcriptContent"></p>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-clipboard-list text-green-600 mr-2"></i>Executive Summary
+                    </h2>
+                    <p class="text-gray-700 leading-relaxed" id="summaryContent"></p>
+                </div>
+            </div>
+
+            <!-- Key Decisions and Action Items -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Key Decisions -->
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-bullseye text-purple-600 mr-2"></i>Key Decisions
+                    </h2>
+                    <ul class="space-y-4" id="decisionsList"></ul>
+                </div>
+
+                <!-- Action Items -->
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-tasks text-orange-600 mr-2"></i>Action Items
+                    </h2>
+                    <div class="space-y-4" id="actionsList"></div>
+                </div>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="bg-white rounded-2xl shadow-xl p-8 mt-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-arrow-right text-blue-600 mr-2"></i>Next Steps
+                </h2>
+                <ul class="space-y-3" id="nextStepsList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            selectedFile = e.target.files[0];
+            const fileInfo = document.getElementById('fileInfo');
+            
+            if (selectedFile) {
+                // Validate file type
+                const allowedExtensions = ['.mp3', '.wav', '.m4a', '.flac'];
+                const fileExtension = selectedFile.name.toLowerCase().substring(selectedFile.name.lastIndexOf('.'));
+                
+                if (!allowedExtensions.includes(fileExtension)) {
+                    showError('Please select an MP3, WAV, M4A, or FLAC file');
+                    selectedFile = null;
+                    fileInfo.innerHTML = '<p class="text-red-600">Invalid file type</p>';
+                    return;
+                }
+                
+                // Validate file size
+                if (selectedFile.size > 25 * 1024 * 1024) {
+                    showError('File too large. Maximum size is 25MB');
+                    selectedFile = null;
+                    fileInfo.innerHTML = '<p class="text-red-600">File too large</p>';
+                    return;
+                }
+                
+                fileInfo.innerHTML = `
+                    <p class="text-green-600 font-semibold">
+                        <i class="fas fa-check-circle mr-2"></i>Selected: ${selectedFile.name}
+                    </p>
+                    <p class="text-sm">Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                `;
+                hideError();
+            } else {
+                fileInfo.innerHTML = '<p>No file selected</p><p class="text-sm mt-2">Maximum file size: 25MB</p>';
+            }
+        });
+
+        // Upload file function
+        async function uploadFile() {
+            if (!selectedFile) {
+                showError('Please select an audio file first');
+                return;
+            }
+
+            // Show loading state
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadText = document.getElementById('uploadText');
+            uploadBtn.disabled = true;
+            uploadText.textContent = 'Processing...';
+            
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            hideError();
+
+            // Simulate progress steps
+            setTimeout(() => document.getElementById('step1').classList.remove('hidden'), 1000);
+            setTimeout(() => document.getElementById('step2').classList.remove('hidden'), 3000);
+            setTimeout(() => document.getElementById('step3').classList.remove('hidden'), 5000);
+
+            try {
+                const formData = new FormData();
+                formData.append('audio', selectedFile);
+
+                const response = await fetch('http://localhost:5000/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                showResults(data);
+                
+            } catch (error) {
+                showError('Upload failed: ' + error.message);
+                console.error('Upload error:', error);
+            } finally {
+                // Reset loading state
+                uploadBtn.disabled = false;
+                uploadText.textContent = 'Generate Summary';
+                document.getElementById('loading').classList.add('hidden');
+                
+                // Reset progress indicators
+                ['step1', 'step2', 'step3'].forEach(step => {
+                    document.getElementById(step).classList.add('hidden');
+                });
+            }
+        }
+
+        // Show results function
+        function showResults(data) {
+            // Update metrics
+            document.getElementById('metricDecisions').textContent = data.summary.meeting_metrics.total_decisions;
+            document.getElementById('metricActions').textContent = data.summary.meeting_metrics.total_action_items;
+            document.getElementById('metricWords').textContent = data.word_count;
+            document.getElementById('metricTopics').textContent = data.summary.meeting_metrics.key_topics.length;
+            document.getElementById('wordCount').textContent = data.word_count + ' words';
+
+            // Update transcript
+            document.getElementById('transcriptContent').textContent = data.transcript;
+
+            // Update summary
+            document.getElementById('summaryContent').textContent = data.summary.summary;
+
+            // Update key decisions
+            const decisionsList = document.getElementById('decisionsList');
+            decisionsList.innerHTML = data.summary.key_decisions.map(decision => `
+                <li class="flex items-start">
+                    <i class="fas fa-check text-green-500 mt-1 mr-3 flex-shrink-0"></i>
+                    <span class="text-gray-700">${decision}</span>
+                </li>
+            `).join('');
+
+            // Update action items
+            const actionsList = document.getElementById('actionsList');
+            actionsList.innerHTML = data.summary.action_items.map(item => `
+                <div class="border-l-4 border-orange-500 pl-4 py-3 bg-orange-50 rounded-r-lg">
+                    <p class="font-semibold text-gray-800">${item.task}</p>
+                    <div class="flex flex-wrap items-center text-sm text-gray-600 mt-2 gap-4">
+                        <span class="flex items-center">
+                            <i class="fas fa-user mr-1"></i>
+                            <span class="font-medium">Owner:</span> ${item.owner}
+                        </span>
+                        <span class="flex items-center">
+                            <i class="fas fa-calendar mr-1"></i>
+                            <span class="font-medium">Deadline:</span> ${item.deadline}
+                        </span>
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${
+                            item.priority === 'High' ? 'bg-red-100 text-red-800' :
+                            item.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                        }">
+                            ${item.priority} Priority
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update next steps
+            const nextStepsList = document.getElementById('nextStepsList');
+            nextStepsList.innerHTML = data.summary.next_steps.map(step => `
+                <li class="flex items-start">
+                    <i class="fas fa-arrow-right text-blue-500 mt-1 mr-3 flex-shrink-0"></i>
+                    <span class="text-gray-700">${step}</span>
+                </li>
+            `).join('');
+
+            // Show results
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        // Error handling functions
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+
+        // Initialize
+        window.addEventListener('load', function() {
+            console.log('Meeting Summarizer frontend loaded');
+        });
+    </script>
+</body>
+</html>
